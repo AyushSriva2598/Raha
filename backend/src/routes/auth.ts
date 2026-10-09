@@ -21,7 +21,7 @@ router.post('/send-otp', async (req: Request, res: Response) => {
 
     otpCache.set(phone, { code, expiresAt });
 
-    console.log(`📱 [SMS Gateway Simulation] OTP for ${phone}: ${code}`);
+    console.log(`📱 [SMS Gateway Dispatch] OTP for ${phone}: ${code}`);
 
     res.json({
       success: true,

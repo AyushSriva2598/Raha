@@ -31,7 +31,6 @@ interface AppState {
   targetPerson: 'ME' | 'OTHER';
   isLegendOpen: boolean;
   isSosModalOpen: boolean;
-  isDemoScenarioModalOpen: boolean;
   isAddContactModalOpen: boolean;
   sosBroadcastResult: SosResponse | null;
 
@@ -46,7 +45,6 @@ interface AppState {
   toggleContact: (contactId: string) => Promise<void>;
   addEmergencyContact: (contact: Omit<SosContact, 'contactId'>) => Promise<void>;
   openSosModal: (open: boolean) => void;
-  openDemoScenarioModal: (open: boolean) => void;
   openAddContactModal: (open: boolean) => void;
   triggerEmergencySos: () => Promise<SosResponse>;
   t: () => Translations;
@@ -68,7 +66,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   targetPerson: 'ME',
   isLegendOpen: false,
   isSosModalOpen: false,
-  isDemoScenarioModalOpen: false,
   isAddContactModalOpen: false,
   sosBroadcastResult: null,
 
@@ -104,7 +101,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   setAlertLevel: async (level: AlertLevel) => {
     try {
-      const assessment = await apiClient.setDemoScenarioLevel(level);
+      const assessment = await apiClient.updateThreatLevel(level);
       const events = await apiClient.getEventLogs(level);
       set({
         alertLevel: level,
@@ -171,10 +168,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   openSosModal: (open: boolean) => {
     set({ isSosModalOpen: open });
-  },
-
-  openDemoScenarioModal: (open: boolean) => {
-    set({ isDemoScenarioModalOpen: open });
   },
 
   openAddContactModal: (open: boolean) => {

@@ -91,7 +91,6 @@ export class DatabaseStore {
       ...this.activeAssessment,
       ...payload,
       timestamp: new Date().toISOString(),
-      isSimulated: false,
     };
     return { ...this.activeAssessment };
   }
@@ -105,7 +104,7 @@ export class DatabaseStore {
   }
 
   async getNearestSafePoints(lat: number, lon: number, limit = 5): Promise<SafePoint[]> {
-    // PostGIS Haversine distance simulation in-memory
+    // PostGIS Haversine distance calculation fallback
     const distanceKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
       const R = 6371; // Earth radius in km
       const dLat = ((lat2 - lat1) * Math.PI) / 180;

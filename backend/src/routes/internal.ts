@@ -36,7 +36,6 @@ router.post('/assessment-sync', async (req: Request, res: Response) => {
       contributingFactors: payload.contributingFactors ?? [],
       modelVersion: payload.modelVersion ?? 'sagemaker-chronos-live',
       authorityBroadcastCode: payload.authorityBroadcastCode,
-      isSimulated: false,
     });
 
     // Instantly notify connected mobile clients via WebSockets and SSE

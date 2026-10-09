@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS lake_assessments (
     data_age_min INT NOT NULL DEFAULT 15,
     model_version TEXT NOT NULL DEFAULT 'chronos-v2.1+xgb-himalaya',
     authority_broadcast_code TEXT,
-    is_simulated BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_lake_assessments_level ON lake_assessments(lake_id, created_at DESC);

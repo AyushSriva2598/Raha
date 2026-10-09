@@ -32,7 +32,6 @@ export interface LakeAssessment {
   contributingFactors: string[];
   modelVersion: string;
   authorityBroadcastCode?: string;
-  isSimulated?: boolean;
 }
 
 export interface DownstreamZone {
@@ -150,5 +149,4 @@ export interface AssessmentSyncPayload {
   summaryText?: string;
   modelVersion?: string;
   authorityBroadcastCode?: string;
-  isSimulated?: boolean;
 }

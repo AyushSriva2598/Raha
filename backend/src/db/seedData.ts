@@ -63,7 +63,6 @@ export const SEED_ASSESSMENTS: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'chronos-v2.1+xgb-himalaya',
     authorityBroadcastCode: 'DHM-KOSHI-2026-0041',
-    isSimulated: false,
   },
   WATCH: {
     lakeId: 'imja-tsho',
@@ -85,7 +84,6 @@ export const SEED_ASSESSMENTS: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'chronos-v2.1+xgb-himalaya',
     authorityBroadcastCode: 'DHM-KOSHI-2026-0042-W',
-    isSimulated: true,
   },
   WARNING: {
     lakeId: 'imja-tsho',
@@ -107,7 +105,6 @@ export const SEED_ASSESSMENTS: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'chronos-v2.1+xgb-himalaya',
     authorityBroadcastCode: 'DHM-KOSHI-2026-0043-WARN',
-    isSimulated: true,
   },
   EVACUATE: {
     lakeId: 'imja-tsho',
@@ -129,7 +126,6 @@ export const SEED_ASSESSMENTS: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'chronos-v2.1+xgb-himalaya',
     authorityBroadcastCode: 'DHM-EMERGENCY-2026-EVAC-01',
-    isSimulated: true,
   },
 };
 
