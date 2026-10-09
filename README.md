@@ -1,56 +1,82 @@
-# Welcome to your Expo app 👋
+# Raha (Avalon) — Glacial Threat Early Warning System
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A life-critical, mobile-first Early Warning System (EWS) for downstream Himalayan communities threatened by Glacial Lake Outburst Floods (GLOF). Designed in Google Stitch and implemented with React Native / Expo.
 
-## Get started
+---
 
-1. Install dependencies
+## 📁 Repository Structure
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+.
+├── frontend/                  # Complete Expo / React Native mobile application
+│   ├── src/
+│   │   ├── app/               # Expo Router file-based screens (_layout, (tabs), modal, etc.)
+│   │   ├── components/        # UI components (HazardMapCanvas, MiniMap, NavigationBar, etc.)
+│   │   ├── constants/         # Design system tokens (colors, typography, spacing per Stitch)
+│   │   ├── i18n/              # Multilingual translations (English, Hindi, Nepali)
+│   │   ├── services/          # Decoupled API interface (mockData + AppSync GraphQL adapter)
+│   │   ├── store/             # Zustand state management (threat level, safe routes, contacts)
+│   │   └── types/             # Domain TypeScript interfaces (GLOF, shelters, sensors)
+│   ├── assets/                # Local static assets and icons
+│   ├── app.json               # Expo configuration
+│   ├── package.json           # Frontend dependencies
+│   ├── tsconfig.json          # TypeScript strict configuration
+│   └── eslint.config.js       # ESLint configuration
+└── backend/                   # (Target directory for AWS AppSync / GraphQL / Lambda integrations)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-### Other setup steps
+## 🚀 Quick Start (Frontend)
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+To run using **Bun** (recommended) or **Npx**:
 
-## Learn more
+```bash
+# 1. Navigate to the frontend directory
+cd frontend
 
-To learn more about developing your project with Expo, look at the following resources:
+# 2. Install dependencies
+bun install
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+# 3. Start the dev server (with tunnel for physical phones)
+bunx expo start --tunnel
 
-## Join the community
+# Or start for web browser preview
+bunx expo start --web
+```
 
-Join our community of developers creating universal apps.
+From the repository root, you can also run:
+```bash
+bun run start:frontend
+bun run start:frontend:tunnel
+bun run frontend:typecheck
+bun run frontend:lint
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## 🏔️ Core Features
+
+1. **4 Action-Based Threat Levels**:
+   - `Clear`: Routine monitoring, lake status stable.
+   - `Watch`: Elevated water levels, prepare equipment and check ridge trails.
+   - `Warning`: Imminent breach threat detected, assemble kin and prepare evacuation packs.
+   - `Evacuate`: High-velocity flood wave in transit, immediate high-ground evacuation route activated.
+   - *(Zero numeric scores, zero confusing dials, maximum clarity for panic reduction).*
+
+2. **Topographic Hazard Map & Safe Ridge Guidance**:
+   - Vector contour terrain map with flood inundation corridors.
+   - Real-time elevation tracking (`Namche Health Post +210m`, `Upper Ridge Gompa +340m`, etc.).
+   - Interactive high-ground safe shelter dossiers with elevation gain, capacity, and uphill gradients.
+   - Simulated live compass guidance towards designated safe ridges.
+
+3. **Multilingual Himalayan Localization**:
+   - Full toggle between **English**, **Hindi (हिन्दी)**, and **Nepali (नेपाली)** for life-critical advisories.
+
+4. **Emergency Kin Contacts & Community VHF Radio**:
+   - Satellite distress notification toggles for designated family contacts.
+   - Direct community station dialer (VHF Channel 07 · 146.520 MHz).
+
+5. **Decoupled Backend Architecture**:
+   - Clean `IGlacialThreatApiClient` interface in [`frontend/src/services/api.ts`](file:///Users/garv/Documents/Projects/Raha/frontend/src/services/api.ts).
+   - Effortless swap between simulated offline mock data and live AWS AppSync GraphQL / IoT endpoints.
