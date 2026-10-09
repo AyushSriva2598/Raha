@@ -1,3 +1,5 @@
+import type { FeatureCollection } from 'geojson';
+
 // Real geographic data for Khumbu Glacial Threat EWS (Imja Tsho & Dingboche)
 // Coordinates format: [longitude, latitude] per GeoJSON specification
 
@@ -13,7 +15,7 @@ export const MAP_CONFIG = {
 };
 
 // GLOF Inundation Hazard Corridor Polygon (Dudh Koshi valley floor)
-export const HAZARD_INUNDATION_GEOJSON: GeoJSON.FeatureCollection = {
+export const HAZARD_INUNDATION_GEOJSON: FeatureCollection = {
   type: 'FeatureCollection',
   features: [
     {
@@ -51,7 +53,7 @@ export const HAZARD_INUNDATION_GEOJSON: GeoJSON.FeatureCollection = {
 };
 
 // Safe Evacuation Ridge Route LineString (Path climbing uphill out of flood reach)
-export const SAFE_ESCAPE_ROUTE_GEOJSON: GeoJSON.FeatureCollection = {
+export const SAFE_ESCAPE_ROUTE_GEOJSON: FeatureCollection = {
   type: 'FeatureCollection',
   features: [
     {
