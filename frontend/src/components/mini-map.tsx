@@ -1,12 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { WebView } from 'react-native-webview';
+import MapView, { Marker, Polygon, UrlTile } from 'react-native-maps';
 import { Colors, Radii, Spacing, Shadows } from '@/constants/tokens';
 import { Maximize2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import {
   DINGBOCHE_COORDINATES,
-  MAP_CONFIG,
   HAZARD_INUNDATION_GEOJSON,
 } from '@/constants/geoData';
 
@@ -31,80 +30,62 @@ export function MiniMapCard({
     }
   };
 
-  const miniHtml = useMemo(() => {
-    const inundationJson = JSON.stringify(HAZARD_INUNDATION_GEOJSON);
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; background: #0F1A24; overflow: hidden; }
-    .mini-user-pin {
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: ${Colors.meltwater};
-      border: 2.5px solid #FFFFFF;
-      box-shadow: 0 0 8px rgba(32,138,239,0.9);
+  const hazardCoords = useMemo(() => {
+    const feature = HAZARD_INUNDATION_GEOJSON.features[0];
+    if (feature && feature.geometry.type === 'Polygon') {
+      return feature.geometry.coordinates[0].map(([lng, lat]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
     }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    const m = new maplibregl.Map({
-      container: 'map',
-      style: '${MAP_CONFIG.styleUrl}',
-      center: [${DINGBOCHE_COORDINATES[0]}, ${DINGBOCHE_COORDINATES[1]}],
-      zoom: 12.2,
-      pitch: 35,
-      interactive: false,
-      attributionControl: false
-    });
-    m.on('load', function() {
-      m.addSource('hazard-mini-source', {
-        type: 'geojson',
-        data: ${inundationJson}
-      });
-      m.addLayer({
-        id: 'hazard-mini-fill',
-        type: 'fill',
-        source: 'hazard-mini-source',
-        paint: {
-          'fill-color': '${Colors.warning}',
-          'fill-opacity': 0.35
-        }
-      });
-      const el = document.createElement('div');
-      el.className = 'mini-user-pin';
-      new maplibregl.Marker({ element: el })
-        .setLngLat([${DINGBOCHE_COORDINATES[0]}, ${DINGBOCHE_COORDINATES[1]}])
-        .addTo(m);
-    });
-  </script>
-</body>
-</html>`;
+    return [];
   }, []);
 
   return (
     <Pressable
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
       onPress={handlePress}>
-      {/* Real MapLibre Mini Map Canvas via WebView */}
+      {/* Real Native MapView Thumbnail */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <WebView
-          originWhitelist={['*']}
-          source={{ html: miniHtml }}
-          style={styles.webView}
+        <MapView
+          style={StyleSheet.absoluteFill}
+          initialRegion={{
+            latitude: DINGBOCHE_COORDINATES[1],
+            longitude: DINGBOCHE_COORDINATES[0],
+            latitudeDelta: 0.045,
+            longitudeDelta: 0.045,
+          }}
           scrollEnabled={false}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          overScrollMode="never"
-        />
+          zoomEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
+          mapType="terrain">
+          <UrlTile
+            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maximumZ={19}
+            flipY={false}
+            zIndex={-1}
+          />
+
+          {hazardCoords.length > 0 && (
+            <Polygon
+              coordinates={hazardCoords}
+              strokeColor={Colors.warning}
+              strokeWidth={2}
+              fillColor="rgba(245, 158, 11, 0.35)"
+              zIndex={2}
+            />
+          )}
+
+          <Marker
+            coordinate={{
+              latitude: DINGBOCHE_COORDINATES[1],
+              longitude: DINGBOCHE_COORDINATES[0],
+            }}
+            zIndex={10}>
+            <View style={styles.miniUserPin} />
+          </Marker>
+        </MapView>
       </View>
 
       {/* Header Info Overlay */}
@@ -145,13 +126,22 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     ...Shadows.subtle,
   },
-  webView: {
-    flex: 1,
-    backgroundColor: '#0F1A24',
-  },
   pressed: {
     opacity: 0.95,
     transform: [{ scale: 0.99 }],
+  },
+  miniUserPin: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.meltwater,
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    shadowColor: Colors.meltwater,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+    elevation: 4,
   },
   headerRow: {
     flexDirection: 'row',

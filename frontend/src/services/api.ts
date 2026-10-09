@@ -13,6 +13,8 @@ import {
   SosResponse,
   UserProfile,
 } from '@/types';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 import {
   ASSESSMENTS_BY_LEVEL,
   MOCK_EVENT_LOGS,
@@ -50,8 +52,15 @@ class ProductionGlacialThreatApiClient implements IGlacialThreatApiClient {
   private cachedProfile: UserProfile = { ...MOCK_USER_PROFILE };
   private cachedRoutes: NavigationRouteOption[] = [...MOCK_NAVIGATION_ROUTES];
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl ? baseUrl.replace(/\/+$/, '') : '';
+  }
+
+  private getBaseUrl(): string {
+    if (this.baseUrl && !this.baseUrl.includes('localhost') && !this.baseUrl.includes('127.0.0.1')) {
+      return this.baseUrl;
+    }
+    return getResolvedApiUrl().replace(/\/+$/, '');
   }
 
   private async fetchWithTimeout<T>(
@@ -64,7 +73,8 @@ class ProductionGlacialThreatApiClient implements IGlacialThreatApiClient {
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const res = await fetch(`${this.baseUrl}${endpoint}`, {
+      const activeBase = this.getBaseUrl();
+      const res = await fetch(`${activeBase}${endpoint}`, {
         ...options,
         signal: controller.signal,
         headers: {
@@ -260,6 +270,28 @@ class ProductionGlacialThreatApiClient implements IGlacialThreatApiClient {
   }
 }
 
-// Global API client instance targeting the product backend
-const resolvedApiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
-export const apiClient: IGlacialThreatApiClient = new ProductionGlacialThreatApiClient(resolvedApiUrl);
+// Dynamic API URL resolver: On physical mobile devices, automatically substitutes localhost with the Expo LAN host
+export function getResolvedApiUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (Platform.OS === 'web') {
+    return envUrl || 'http://localhost:4000';
+  }
+
+  // If user explicitly configured an external or LAN IP, use it directly
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl;
+  }
+
+  // On native mobile (iOS / Android in Expo Go), resolve computer's LAN IP
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    const host = hostUri.split(':')[0];
+    if (host) {
+      return `http://${host}:4000`;
+    }
+  }
+
+  return envUrl || 'http://localhost:4000';
+}
+
+export const apiClient: IGlacialThreatApiClient = new ProductionGlacialThreatApiClient();

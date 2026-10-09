@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, Platform, ActivityIndicator } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { View, Text, StyleSheet } from 'react-native';
+import MapView, { Marker, Polygon, Polyline, UrlTile, type Region } from 'react-native-maps';
 import { Colors } from '@/constants/tokens';
 import { SafePoint } from '@/types';
 import {
   DINGBOCHE_COORDINATES,
-  MAP_CONFIG,
   HAZARD_INUNDATION_GEOJSON,
   SAFE_ESCAPE_ROUTE_GEOJSON,
 } from '@/constants/geoData';
@@ -25,285 +24,156 @@ export function HazardMapCanvas({
   onSelectSafePoint,
   safePoints,
 }: HazardMapCanvasProps) {
-  const webViewRef = useRef<WebView>(null);
+  const mapRef = useRef<MapView>(null);
 
-  // Generate self-contained MapLibre HTML page
-  const htmlContent = useMemo(() => {
-    const inundationJson = JSON.stringify(HAZARD_INUNDATION_GEOJSON);
-    const escapeRouteJson = JSON.stringify(SAFE_ESCAPE_ROUTE_GEOJSON);
-    const safePointsJson = JSON.stringify(safePoints);
-    const userLabel = targetPerson === 'ME' ? 'You • Dingboche (4,410m)' : 'Meena • Dingboche (4,410m)';
-    const initialOpacity = mode === 'EVACUATE' ? 0.35 : 0.2;
-
-    return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Raha Hazard Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
-  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #map { width: 100%; height: 100%; background: #0F1A24; overflow: hidden; }
-    .raha-marker {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      cursor: pointer;
-      -webkit-user-select: none;
-      user-select: none;
+  // Convert GeoJSON Polygon [lng, lat] to react-native-maps { latitude, longitude }
+  const hazardPolygonCoords = useMemo(() => {
+    const feature = HAZARD_INUNDATION_GEOJSON.features[0];
+    if (feature && feature.geometry.type === 'Polygon') {
+      return feature.geometry.coordinates[0].map(([lng, lat]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
     }
-    .user-dot {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: ${Colors.meltwater};
-      border: 3px solid #FFFFFF;
-      box-shadow: 0 0 10px rgba(32,138,239,0.8);
+    return [];
+  }, []);
+
+  // Convert GeoJSON LineString [lng, lat] to react-native-maps { latitude, longitude }
+  const escapeRouteCoords = useMemo(() => {
+    const feature = SAFE_ESCAPE_ROUTE_GEOJSON.features[0];
+    if (feature && feature.geometry.type === 'LineString') {
+      return feature.geometry.coordinates.map(([lng, lat]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
     }
-    .user-pill {
-      background: rgba(14,24,37,0.85);
-      color: #FFFFFF;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 12px;
-      margin-top: 4px;
-      border: 1px solid rgba(255,255,255,0.2);
-      white-space: nowrap;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .sp-badge {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: #0F6CBD;
-      border: 2.5px solid #FFFFFF;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FFFFFF;
-      font-weight: bold;
-      font-size: 12px;
-      transition: transform 0.2s ease, background-color 0.2s ease;
-    }
-    .sp-badge.selected {
-      background: ${Colors.cirqueTeal};
-      transform: scale(1.18);
-    }
-    .sp-pill {
-      background: rgba(14,24,37,0.9);
-      color: #FFFFFF;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 4px 8px;
-      border-radius: 8px;
-      margin-top: 4px;
-      border: 1px solid #0F6CBD;
-      white-space: nowrap;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    .sp-pill.selected {
-      border-color: ${Colors.cirqueTeal};
-    }
-    .maplibregl-ctrl-bottom-right {
-      bottom: 24px;
-      right: 12px;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    const safePoints = ${safePointsJson};
-    const centerCoords = [${DINGBOCHE_COORDINATES[0]}, ${DINGBOCHE_COORDINATES[1]}];
-    let selectedPointId = ${selectedSafePoint ? JSON.stringify(selectedSafePoint.pointId) : 'null'};
-    const spMarkers = {};
+    return [];
+  }, []);
 
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: '${MAP_CONFIG.styleUrl}',
-      center: centerCoords,
-      zoom: ${MAP_CONFIG.defaultZoom},
-      pitch: 45,
-      bearing: 15,
-      attributionControl: false
-    });
+  const initialRegion: Region = useMemo(
+    () => ({
+      latitude: DINGBOCHE_COORDINATES[1],
+      longitude: DINGBOCHE_COORDINATES[0],
+      latitudeDelta: 0.038,
+      longitudeDelta: 0.038,
+    }),
+    []
+  );
 
-    window.map = map;
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
-
-    map.on('load', function() {
-      // 1. Hazard Inundation Corridor
-      map.addSource('hazard-inundation', {
-        type: 'geojson',
-        data: ${inundationJson}
-      });
-
-      map.addLayer({
-        id: 'hazard-inundation-fill',
-        type: 'fill',
-        source: 'hazard-inundation',
-        paint: {
-          'fill-color': '${Colors.alarmRed}',
-          'fill-opacity': ${initialOpacity}
-        }
-      });
-
-      map.addLayer({
-        id: 'hazard-inundation-line',
-        type: 'line',
-        source: 'hazard-inundation',
-        paint: {
-          'line-color': '${Colors.alarmRed}',
-          'line-width': 2.5,
-          'line-dasharray': [3, 2]
-        }
-      });
-
-      // 2. Safe Evacuation Escape Route
-      map.addSource('safe-escape-route', {
-        type: 'geojson',
-        data: ${escapeRouteJson}
-      });
-
-      map.addLayer({
-        id: 'safe-route-casing',
-        type: 'line',
-        source: 'safe-escape-route',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '#FFFFFF',
-          'line-width': 8
-        }
-      });
-
-      map.addLayer({
-        id: 'safe-route-line',
-        type: 'line',
-        source: 'safe-escape-route',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: {
-          'line-color': '${Colors.cirqueTeal}',
-          'line-width': 4.5
-        }
-      });
-
-      // 3. User Location Marker
-      const userEl = document.createElement('div');
-      userEl.className = 'raha-marker';
-      userEl.innerHTML = '<div class="user-dot"></div><div class="user-pill">${userLabel}</div>';
-      new maplibregl.Marker({ element: userEl })
-        .setLngLat(centerCoords)
-        .addTo(map);
-
-      // 4. Safe Point Markers
-      safePoints.forEach(function(sp) {
-        const el = document.createElement('div');
-        el.className = 'raha-marker';
-        const isSel = selectedPointId === sp.pointId;
-        el.innerHTML = '<div class="sp-badge ' + (isSel ? 'selected' : '') + '">▲</div>' +
-          '<div class="sp-pill ' + (isSel ? 'selected' : '') + '">' + sp.name + ' (+' + sp.elevationGainM + 'm)</div>';
-
-        el.addEventListener('click', function() {
-          selectPoint(sp.pointId);
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'SELECT_SAFE_POINT',
-              pointId: sp.pointId
-            }));
-          }
-        });
-
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([sp.coordinates.longitude, sp.coordinates.latitude])
-          .addTo(map);
-
-        spMarkers[sp.pointId] = { marker: marker, el: el, sp: sp };
-      });
-    });
-
-    function selectPoint(pointId) {
-      selectedPointId = pointId;
-      Object.keys(spMarkers).forEach(function(id) {
-        const item = spMarkers[id];
-        const isSel = id === pointId;
-        const badge = item.el.querySelector('.sp-badge');
-        const pill = item.el.querySelector('.sp-pill');
-        if (badge) badge.className = 'sp-badge ' + (isSel ? 'selected' : '');
-        if (pill) pill.className = 'sp-pill ' + (isSel ? 'selected' : '');
-      });
-      if (spMarkers[pointId]) {
-        const coords = [spMarkers[pointId].sp.coordinates.longitude, spMarkers[pointId].sp.coordinates.latitude];
-        map.flyTo({ center: coords, zoom: 15.2, speed: 1.2 });
-      }
-    }
-
-    window.selectSafePointExternal = function(pointId) {
-      selectPoint(pointId);
-    };
-
-    window.updateMode = function(newMode) {
-      if (map && map.getLayer('hazard-inundation-fill')) {
-        map.setPaintProperty('hazard-inundation-fill', 'fill-opacity', newMode === 'EVACUATE' ? 0.35 : 0.18);
-      }
-    };
-  </script>
-</body>
-</html>`;
-  }, [mode, targetPerson, safePoints, selectedSafePoint]);
-
-  // When selectedSafePoint changes from React Native props, sync into WebView
+  // Smoothly pan and zoom camera when a safe point is selected
   useEffect(() => {
-    if (!selectedSafePoint) return;
-    const js = `window.selectSafePointExternal && window.selectSafePointExternal(${JSON.stringify(selectedSafePoint.pointId)}); true;`;
-    webViewRef.current?.injectJavaScript(js);
+    if (selectedSafePoint && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: selectedSafePoint.coordinates.latitude,
+          longitude: selectedSafePoint.coordinates.longitude,
+          latitudeDelta: 0.018,
+          longitudeDelta: 0.018,
+        },
+        900
+      );
+    }
   }, [selectedSafePoint]);
-
-  // When mode changes, sync into WebView
-  useEffect(() => {
-    const js = `window.updateMode && window.updateMode(${JSON.stringify(mode)}); true;`;
-    webViewRef.current?.injectJavaScript(js);
-  }, [mode]);
-
-  const handleMessage = (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'SELECT_SAFE_POINT') {
-        const sp = safePoints.find((p) => p.pointId === data.pointId);
-        if (sp) {
-          onSelectSafePoint(sp);
-        }
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  };
 
   return (
     <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        originWhitelist={['*']}
-        source={{ html: htmlContent }}
-        style={styles.webView}
-        containerStyle={styles.webViewContainer}
-        onMessage={handleMessage}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        startInLoadingState={true}
-        renderLoading={() => (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.cirqueTeal} />
-          </View>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        initialRegion={initialRegion}
+        showsCompass={true}
+        showsScale={true}
+        mapType="terrain">
+        {/* OpenStreetMap Tile Layer for crisp topography without requiring Google API Keys */}
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          flipY={false}
+          zIndex={-1}
+        />
+
+        {/* 1. GLOF Inundation Hazard Polygon Corridor */}
+        {hazardPolygonCoords.length > 0 && (
+          <Polygon
+            coordinates={hazardPolygonCoords}
+            strokeColor={Colors.alarmRed}
+            strokeWidth={2.5}
+            fillColor={mode === 'EVACUATE' ? 'rgba(214, 69, 41, 0.35)' : 'rgba(214, 69, 41, 0.20)'}
+            zIndex={2}
+          />
         )}
-        scalesPageToFit={Platform.OS === 'android'}
-        scrollEnabled={false}
-        overScrollMode="never"
-        bounces={false}
-      />
+
+        {/* 2. Safe Evacuation Escape Route (Ridge line) */}
+        {escapeRouteCoords.length > 0 && (
+          <>
+            {/* White casing underlay for high visibility over mountain terrain */}
+            <Polyline
+              coordinates={escapeRouteCoords}
+              strokeColor="#FFFFFF"
+              strokeWidth={7}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={3}
+            />
+            {/* Active cirque teal escape route */}
+            <Polyline
+              coordinates={escapeRouteCoords}
+              strokeColor={Colors.cirqueTeal}
+              strokeWidth={4.5}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={4}
+            />
+          </>
+        )}
+
+        {/* 3. User Location Marker */}
+        <Marker
+          coordinate={{
+            latitude: DINGBOCHE_COORDINATES[1],
+            longitude: DINGBOCHE_COORDINATES[0],
+          }}
+          title={targetPerson === 'ME' ? 'Your Location' : 'Meena Location'}
+          description="Dingboche (4,410m)"
+          zIndex={10}>
+          <View style={styles.userMarkerContainer}>
+            <View style={styles.userDot} />
+            <View style={styles.userPill}>
+              <Text style={styles.userPillText}>
+                {targetPerson === 'ME' ? 'You • Dingboche' : 'Meena • Dingboche'}
+              </Text>
+            </View>
+          </View>
+        </Marker>
+
+        {/* 4. Safe Point Markers */}
+        {safePoints.map((sp) => {
+          const isSelected = selectedSafePoint?.pointId === sp.pointId;
+          return (
+            <Marker
+              key={sp.pointId}
+              coordinate={{
+                latitude: sp.coordinates.latitude,
+                longitude: sp.coordinates.longitude,
+              }}
+              title={sp.name}
+              description={`+${sp.elevationGainM}m elevation`}
+              onPress={() => onSelectSafePoint(sp)}
+              zIndex={isSelected ? 20 : 10}>
+              <View style={styles.spMarkerContainer}>
+                <View style={[styles.spBadge, isSelected && styles.spBadgeSelected]}>
+                  <Text style={styles.spBadgeText}>▲</Text>
+                </View>
+                <View style={[styles.spPill, isSelected && styles.spPillSelected]}>
+                  <Text style={[styles.spPillText, isSelected && styles.spPillTextSelected]}>
+                    {sp.name} (+{sp.elevationGainM}m)
+                  </Text>
+                </View>
+              </View>
+            </Marker>
+          );
+        })}
+      </MapView>
     </View>
   );
 }
@@ -316,17 +186,84 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F1A24',
     overflow: 'hidden',
   },
-  webViewContainer: {
-    backgroundColor: '#0F1A24',
-  },
-  webView: {
-    flex: 1,
-    backgroundColor: '#0F1A24',
-  },
-  loadingContainer: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
+  userMarkerContainer: {
     alignItems: 'center',
-    backgroundColor: '#0F1A24',
+    justifyContent: 'center',
+  },
+  userDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.meltwater,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: Colors.meltwater,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  userPill: {
+    backgroundColor: 'rgba(14, 24, 37, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  userPillText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  spMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#0F6CBD',
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  spBadgeSelected: {
+    backgroundColor: Colors.cirqueTeal,
+    transform: [{ scale: 1.15 }],
+  },
+  spBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  spPill: {
+    backgroundColor: 'rgba(14, 24, 37, 0.92)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#0F6CBD',
+  },
+  spPillSelected: {
+    borderColor: Colors.cirqueTeal,
+  },
+  spPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  spPillTextSelected: {
+    color: Colors.cirqueTeal,
+    fontWeight: '700',
   },
 });
