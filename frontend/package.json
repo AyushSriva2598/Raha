@@ -42,6 +42,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "postinstall": "node ./scripts/patch-expo-ngrok.js",
     "start": "node ./scripts/start.js",
     "start:tunnel": "expo start --tunnel",
     "tunnel": "expo start --tunnel",
