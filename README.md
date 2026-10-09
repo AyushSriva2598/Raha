@@ -42,8 +42,8 @@ A life-critical, mobile-first Early Warning System (EWS) for downstream Himalaya
 
 ```bash
 cd frontend
-npm install # or bun install
-npx expo start
+bun install
+bun start --start-tunnel  # Starts Expo with ngrok tunnel
 ```
 
 ### 2. Run the Product Backend
