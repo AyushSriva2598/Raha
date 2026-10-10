@@ -5,7 +5,7 @@ import { SosBroadcastPayload } from '../types/index.js';
 
 const router = Router();
 
-// POST /api/alerts/sos-broadcast
+// POST /api/alerts/sos-broadcast (Triggers real SOS dispatch to kin contacts)
 router.post('/sos-broadcast', async (req: Request, res: Response) => {
   try {
     const payload: SosBroadcastPayload = req.body;
@@ -16,13 +16,27 @@ router.post('/sos-broadcast', async (req: Request, res: Response) => {
 
     const response = await db.recordSosBroadcast(payload);
 
-    // Notify connected web dashboards and emergency operators
+    // Notify connected web dashboards and emergency operators in real time
     realtimeService.broadcastSosAlert({
       ...payload,
       ...response,
     });
 
     res.json(response);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// GET /api/alerts/sos-history (Returns audit logs of live SMS dispatches)
+router.get('/sos-history', async (_req: Request, res: Response) => {
+  try {
+    const history = db.getSosHistory();
+    res.json({
+      success: true,
+      count: history.length,
+      history,
+    });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }

@@ -47,6 +47,7 @@ app.get('/health', (_req, res) => {
     service: 'raha-product-backend',
     timestamp: new Date().toISOString(),
     postgresConnected: db.isConnected,
+    supabaseConnected: db.isSupabaseConnected,
   });
 });
 

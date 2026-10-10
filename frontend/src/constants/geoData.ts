@@ -6,11 +6,14 @@ import type { FeatureCollection } from 'geojson';
 export const DINGBOCHE_COORDINATES: [number, number] = [86.8315, 27.8938];
 export const IMJA_TSHO_COORDINATES: [number, number] = [86.9247, 27.9008];
 
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyCRy8UnT02ssQj7PSOtlp7RK4swXZWO9GU';
+
 export const MAP_CONFIG = {
   defaultCenter: DINGBOCHE_COORDINATES,
   defaultZoom: 13.8,
   minZoom: 10,
   maxZoom: 18,
+  googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   styleUrl: 'https://tiles.openfreemap.org/styles/liberty',
 };
 

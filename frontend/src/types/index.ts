@@ -142,3 +142,37 @@ export interface NavigationRouteOption {
   riskStatus: 'SAFE' | 'AT_RISK';
   summary: string;
 }
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  role: 'resident' | 'authority' | 'operator';
+  homeZoneId: string;
+  createdAt: string;
+}
+
+export interface LoginPayload {
+  identifier: string;
+  password?: string;
+  code?: string;
+}
+
+export interface RegisterPayload {
+  name: string;
+  phone: string;
+  email?: string;
+  password?: string;
+  homeZoneId?: string;
+  role?: 'resident' | 'authority' | 'operator';
+  homeLocationName?: string;
+  latitude?: number;
+  longitude?: number;
+  elevationM?: number;
+  initialContact?: {
+    name: string;
+    phone: string;
+    relation: string;
+  };
+}

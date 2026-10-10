@@ -150,3 +150,48 @@ export interface AssessmentSyncPayload {
   modelVersion?: string;
   authorityBroadcastCode?: string;
 }
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  passwordHash?: string;
+  role: 'resident' | 'authority' | 'operator';
+  homeZoneId: string;
+  createdAt: string;
+}
+
+export interface LoginPayload {
+  identifier: string; // phone or email
+  password?: string;
+  code?: string;
+}
+
+export interface RegisterPayload {
+  name: string;
+  phone: string;
+  email?: string;
+  password?: string;
+  homeZoneId?: string;
+  role?: 'resident' | 'authority' | 'operator';
+  homeLocationName?: string;
+  latitude?: number;
+  longitude?: number;
+  elevationM?: number;
+  initialContact?: {
+    name: string;
+    phone: string;
+    relation: string;
+  };
+}
+
+export interface SosDispatchRecord {
+  id: string;
+  recipientPhone: string;
+  recipientName: string;
+  status: 'SENT' | 'SIMULATED' | 'WEBHOOK_DELIVERED' | 'FAILED';
+  carrierMessageId?: string;
+  timestamp: string;
+  messageText: string;
+}

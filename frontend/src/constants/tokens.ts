@@ -86,6 +86,13 @@ export const Radii = {
 } as const;
 
 export const Shadows = {
+  sm: {
+    shadowColor: Colors.moraineInk,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   subtle: {
     shadowColor: Colors.moraineInk,
     shadowOffset: { width: 0, height: 2 },

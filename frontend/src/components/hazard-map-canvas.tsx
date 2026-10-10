@@ -1,8 +1,16 @@
-import React, { useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import MapView, { Marker, Polygon, Polyline, UrlTile, type Region } from 'react-native-maps';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import MapView, {
+  PROVIDER_GOOGLE,
+  Marker,
+  Polygon,
+  Polyline,
+  type Region,
+  type MapType,
+} from 'react-native-maps';
 import { Colors } from '@/constants/tokens';
 import { SafePoint } from '@/types';
+import { useAppStore } from '@/store/useAppStore';
 import {
   DINGBOCHE_COORDINATES,
   HAZARD_INUNDATION_GEOJSON,
@@ -25,12 +33,15 @@ export function HazardMapCanvas({
   safePoints,
 }: HazardMapCanvasProps) {
   const mapRef = useRef<MapView>(null);
+  const [mapType, setMapType] = useState<MapType>('terrain');
+  const { userLocation } = useAppStore();
 
   // Convert GeoJSON Polygon [lng, lat] to react-native-maps { latitude, longitude }
   const hazardPolygonCoords = useMemo(() => {
     const feature = HAZARD_INUNDATION_GEOJSON.features[0];
     if (feature && feature.geometry.type === 'Polygon') {
-      return feature.geometry.coordinates[0].map(([lng, lat]) => ({
+      const ring = feature.geometry.coordinates[0] as [number, number][];
+      return ring.map(([lng, lat]: [number, number]) => ({
         latitude: lat,
         longitude: lng,
       }));
@@ -42,7 +53,8 @@ export function HazardMapCanvas({
   const escapeRouteCoords = useMemo(() => {
     const feature = SAFE_ESCAPE_ROUTE_GEOJSON.features[0];
     if (feature && feature.geometry.type === 'LineString') {
-      return feature.geometry.coordinates.map(([lng, lat]) => ({
+      const coords = feature.geometry.coordinates as [number, number][];
+      return coords.map(([lng, lat]: [number, number]) => ({
         latitude: lat,
         longitude: lng,
       }));
@@ -52,12 +64,12 @@ export function HazardMapCanvas({
 
   const initialRegion: Region = useMemo(
     () => ({
-      latitude: DINGBOCHE_COORDINATES[1],
-      longitude: DINGBOCHE_COORDINATES[0],
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
       latitudeDelta: 0.038,
       longitudeDelta: 0.038,
     }),
-    []
+    [userLocation.latitude, userLocation.longitude]
   );
 
   // Smoothly pan and zoom camera when a safe point is selected
@@ -83,14 +95,9 @@ export function HazardMapCanvas({
         initialRegion={initialRegion}
         showsCompass={true}
         showsScale={true}
-        mapType="terrain">
-        {/* OpenStreetMap Tile Layer for crisp topography without requiring Google API Keys */}
-        <UrlTile
-          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maximumZ={19}
-          flipY={false}
-          zIndex={-1}
-        />
+        showsMyLocationButton={false}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        mapType={mapType}>
 
         {/* 1. GLOF Inundation Hazard Polygon Corridor */}
         {hazardPolygonCoords.length > 0 && (
@@ -98,7 +105,7 @@ export function HazardMapCanvas({
             coordinates={hazardPolygonCoords}
             strokeColor={Colors.alarmRed}
             strokeWidth={2.5}
-            fillColor={mode === 'EVACUATE' ? 'rgba(214, 69, 41, 0.35)' : 'rgba(214, 69, 41, 0.20)'}
+            fillColor={mode === 'EVACUATE' ? 'rgba(214, 69, 41, 0.38)' : 'rgba(214, 69, 41, 0.22)'}
             zIndex={2}
           />
         )}
@@ -130,17 +137,17 @@ export function HazardMapCanvas({
         {/* 3. User Location Marker */}
         <Marker
           coordinate={{
-            latitude: DINGBOCHE_COORDINATES[1],
-            longitude: DINGBOCHE_COORDINATES[0],
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
           }}
-          title={targetPerson === 'ME' ? 'Your Location' : 'Meena Location'}
-          description="Dingboche (4,410m)"
+          title={targetPerson === 'ME' ? 'Your Location' : 'Kin Location'}
+          description={`${userLocation.shortName} (${userLocation.elevationM}m)`}
           zIndex={10}>
           <View style={styles.userMarkerContainer}>
             <View style={styles.userDot} />
             <View style={styles.userPill}>
               <Text style={styles.userPillText}>
-                {targetPerson === 'ME' ? 'You • Dingboche' : 'Meena • Dingboche'}
+                {targetPerson === 'ME' ? `You • ${userLocation.shortName}` : `Kin • ${userLocation.shortName}`}
               </Text>
             </View>
           </View>
@@ -174,6 +181,29 @@ export function HazardMapCanvas({
           );
         })}
       </MapView>
+
+      {/* Google Maps Layer Switcher Pill */}
+      <View style={styles.layerSwitcher}>
+        <TouchableOpacity
+          style={[styles.layerButton, mapType === 'terrain' && styles.layerButtonActive]}
+          onPress={() => setMapType('terrain')}>
+          <Text style={[styles.layerButtonText, mapType === 'terrain' && styles.layerButtonTextActive]}>
+            🏔️ Terrain
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.layerButton, mapType === 'hybrid' && styles.layerButtonActive]}
+          onPress={() => setMapType('hybrid')}>
+          <Text style={[styles.layerButtonText, mapType === 'hybrid' && styles.layerButtonTextActive]}>
+            🛰️ Satellite
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Google Maps Attribution Badge */}
+      <View style={styles.poweredByBadge}>
+        <Text style={styles.poweredByText}>Google Maps API Connected</Text>
+      </View>
     </View>
   );
 }
@@ -185,6 +215,51 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#0F1A24',
     overflow: 'hidden',
+  },
+  layerSwitcher: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(14, 24, 37, 0.88)',
+    borderRadius: 20,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 30,
+  },
+  layerButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  layerButtonActive: {
+    backgroundColor: Colors.meltwater,
+  },
+  layerButtonText: {
+    color: '#D8EAFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  layerButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  poweredByBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 10,
+    backgroundColor: 'rgba(14, 24, 37, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    zIndex: 30,
+  },
+  poweredByText: {
+    color: '#9ACBE8',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   userMarkerContainer: {
     alignItems: 'center',

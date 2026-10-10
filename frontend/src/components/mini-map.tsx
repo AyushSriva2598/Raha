@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
-import MapView, { Marker, Polygon, UrlTile } from 'react-native-maps';
-import { Colors, Radii, Spacing, Shadows } from '@/constants/tokens';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import MapView, { PROVIDER_GOOGLE, Marker, Polygon } from 'react-native-maps';
+import { Colors, Radii, Shadows } from '@/constants/tokens';
 import { Maximize2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 import {
@@ -33,7 +33,8 @@ export function MiniMapCard({
   const hazardCoords = useMemo(() => {
     const feature = HAZARD_INUNDATION_GEOJSON.features[0];
     if (feature && feature.geometry.type === 'Polygon') {
-      return feature.geometry.coordinates[0].map(([lng, lat]) => ({
+      const ring = feature.geometry.coordinates[0] as [number, number][];
+      return ring.map(([lng, lat]: [number, number]) => ({
         latitude: lat,
         longitude: lng,
       }));
@@ -45,7 +46,7 @@ export function MiniMapCard({
     <Pressable
       style={({ pressed }) => [styles.container, pressed && styles.pressed]}
       onPress={handlePress}>
-      {/* Real Native MapView Thumbnail */}
+      {/* Real Native MapView Thumbnail powered by Google Maps */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <MapView
           style={StyleSheet.absoluteFill}
@@ -55,17 +56,12 @@ export function MiniMapCard({
             latitudeDelta: 0.045,
             longitudeDelta: 0.045,
           }}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           scrollEnabled={false}
           zoomEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}
           mapType="terrain">
-          <UrlTile
-            urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            maximumZ={19}
-            flipY={false}
-            zIndex={-1}
-          />
 
           {hazardCoords.length > 0 && (
             <Polygon
@@ -118,16 +114,14 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: Radii.lg,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(205, 219, 228, 0.8)',
     position: 'relative',
-    backgroundColor: '#0F1A24',
-    justifyContent: 'space-between',
-    padding: Spacing.sm,
-    ...Shadows.subtle,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    ...Shadows.sm,
   },
   pressed: {
-    opacity: 0.95,
+    opacity: 0.92,
     transform: [{ scale: 0.99 }],
   },
   miniUserPin: {
@@ -137,82 +131,90 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.meltwater,
     borderWidth: 2.5,
     borderColor: '#FFFFFF',
-    shadowColor: Colors.meltwater,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
     elevation: 4,
   },
   headerRow: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 20,
   },
   titleBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: Radii.full,
-    ...Shadows.subtle,
+    backgroundColor: 'rgba(15, 26, 36, 0.85)',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   basinTitleText: {
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.moraineInk,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#F0F9FF',
+    letterSpacing: 0.2,
   },
   maximizeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radii.full,
+    borderRadius: 12,
     gap: 4,
-    ...Shadows.subtle,
+    ...Shadows.sm,
   },
   tapToExpandText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: Colors.moraineInk,
   },
   footerRow: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 20,
   },
   userLocationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(14, 24, 37, 0.9)',
-    paddingHorizontal: Spacing.sm,
+    backgroundColor: 'rgba(15, 26, 36, 0.88)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radii.full,
+    borderRadius: 12,
     gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   livePulseDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: Colors.cirqueTeal,
+    backgroundColor: Colors.meltwater,
   },
   userLocationText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   distanceBadge: {
-    backgroundColor: 'rgba(14, 24, 37, 0.9)',
-    paddingHorizontal: Spacing.sm,
+    backgroundColor: 'rgba(15, 26, 36, 0.88)',
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radii.full,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   distanceBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#CBD5E1',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#9ACBE8',
   },
 });

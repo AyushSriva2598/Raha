@@ -38,6 +38,8 @@ export default function HomeScreen() {
     events,
     openSosModal,
     init,
+    userProfile,
+    userLocation,
     t,
   } = useAppStore();
 
@@ -46,6 +48,10 @@ export default function HomeScreen() {
   const isEvacuate = alertLevel === 'EVACUATE';
   const isWarning = alertLevel === 'WARNING';
   const isWatch = alertLevel === 'WATCH';
+  const activeContactNames = (userProfile?.contacts || [])
+    .filter((c) => c.isActive)
+    .map((c) => c.name)
+    .join(', ');
 
   useEffect(() => {
     init();
@@ -172,7 +178,7 @@ export default function HomeScreen() {
                   strokeWidth={2.5}
                 />
                 <Text style={styles.sosTriggerBannerText}>
-                  {strings.home.sendSos} (Sita, Meena)
+                  {strings.home.sendSos} {activeContactNames ? `(${activeContactNames})` : ''}
                 </Text>
               </Pressable>
             )}
@@ -184,7 +190,7 @@ export default function HomeScreen() {
           <MiniMapCard
             onPress={() => router.push('/map' as any)}
             basinTitle={strings.home.basinHydrology}
-            userLocationText={strings.home.youLocation}
+            userLocationText={`You • ${userLocation.shortName} (${userLocation.elevationM}m)`}
             lakeDistText={strings.home.lakeDistance}
           />
         </View>

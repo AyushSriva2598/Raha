@@ -8,12 +8,18 @@ import {
   SafePoint,
   SosContact,
   SosResponse,
+  UserAccount,
   UserProfile,
 } from '@/types';
 import { apiClient } from '@/services/api';
 import { TRANSLATIONS, Translations, LanguageCode } from '@/i18n/translations';
 
 interface AppState {
+  // Authentication State
+  authToken: string | null;
+  isAuthenticated: boolean;
+  currentUser: UserAccount | null;
+
   // Core State
   alertLevel: AlertLevel;
   activeAssessment: LakeAssessment | null;
@@ -26,7 +32,16 @@ interface AppState {
   isLoading: boolean;
   error: string | null;
 
-  // UI Interactive States
+  // Location State
+  userLocation: {
+    latitude: number;
+    longitude: number;
+    elevationM: number;
+    address: string;
+    shortName: string;
+  };
+
+  // UI and Modal State
   mapMode: 'EVACUATE' | 'NAVIGATE';
   targetPerson: 'ME' | 'OTHER';
   isLegendOpen: boolean;
@@ -35,7 +50,16 @@ interface AppState {
   sosBroadcastResult: SosResponse | null;
 
   // Actions
+  setUserLocation: (loc: {
+    latitude: number;
+    longitude: number;
+    elevationM: number;
+    address: string;
+    shortName: string;
+  }) => void;
   init: () => Promise<void>;
+  setAuth: (token: string, user?: UserAccount, profile?: UserProfile) => void;
+  logout: () => void;
   setAlertLevel: (level: AlertLevel) => Promise<void>;
   setLanguage: (lang: LanguageCode) => Promise<void>;
   setMapMode: (mode: 'EVACUATE' | 'NAVIGATE') => void;
@@ -51,6 +75,19 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
+  // Auth default
+  authToken: 'demo-initial-token',
+  isAuthenticated: true,
+  currentUser: {
+    id: 'u-pasang',
+    name: 'Pasang Lhamu Sherpa',
+    phone: '+977 9841-582910',
+    email: 'pasang.sherpa@khumbu.np',
+    role: 'resident',
+    homeZoneId: 'dingboche-zone',
+    createdAt: '2026-01-15T08:00:00Z',
+  },
+
   alertLevel: 'CLEAR',
   activeAssessment: null,
   lakes: [],
@@ -61,6 +98,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   language: 'en',
   isLoading: false,
   error: null,
+
+  userLocation: {
+    latitude: 27.8938,
+    longitude: 86.8315,
+    elevationM: 4410,
+    address: 'Dingboche, Solukhumbu, Nepal',
+    shortName: 'Dingboche',
+  },
+
+  setUserLocation: (loc) => {
+    set((state) => ({
+      userLocation: loc,
+      userProfile: state.userProfile
+        ? {
+            ...state.userProfile,
+            homeLocationName: loc.address,
+            elevationM: loc.elevationM,
+          }
+        : state.userProfile,
+    }));
+  },
 
   mapMode: 'EVACUATE',
   targetPerson: 'ME',
@@ -97,6 +155,23 @@ export const useAppStore = create<AppState>((set, get) => ({
         error: err instanceof Error ? err.message : 'Failed to initialize app',
       });
     }
+  },
+
+  setAuth: (token: string, user?: UserAccount, profile?: UserProfile) => {
+    set((state) => ({
+      authToken: token,
+      isAuthenticated: true,
+      currentUser: user || state.currentUser,
+      userProfile: profile || state.userProfile,
+    }));
+  },
+
+  logout: () => {
+    set({
+      authToken: null,
+      isAuthenticated: false,
+      currentUser: null,
+    });
   },
 
   setAlertLevel: async (level: AlertLevel) => {
@@ -175,16 +250,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   triggerEmergencySos: async () => {
-    const { userProfile, alertLevel } = get();
+    const { userProfile, alertLevel, userLocation } = get();
     const activeContactIds = (userProfile?.contacts || [])
       .filter((c) => c.isActive)
       .map((c) => c.contactId);
 
     const response = await apiClient.triggerEmergencySos({
       userId: userProfile?.userId || 'usr-anonymous',
-      latitude: 27.892,
-      longitude: 86.83,
-      elevationM: userProfile?.elevationM || 4410,
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      elevationM: userLocation.elevationM,
       batteryPct: 88,
       networkStatus: 'IRIDIUM_SATELLITE_HYBRID',
       alertLevel,

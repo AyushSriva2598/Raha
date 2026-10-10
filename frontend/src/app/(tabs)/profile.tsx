@@ -30,16 +30,19 @@ import {
   CheckCircle2,
   Users,
 } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { LanguageCode } from '@/i18n/translations';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const {
     userProfile,
+    userLocation,
     language,
     setLanguage,
     toggleContact,
     openAddContactModal,
+    logout,
     t,
   } = useAppStore();
 
@@ -57,7 +60,8 @@ export default function ProfileScreen() {
           text: 'Sign Out',
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Signed Out', 'Telemetry monitoring disconnected.');
+            logout();
+            router.replace('/login' as any);
           },
         },
       ]
@@ -133,13 +137,13 @@ export default function ProfileScreen() {
               <View style={styles.metaRow}>
                 <MapPin size={13} color={Colors.slateFog} />
                 <Text style={styles.metaText} numberOfLines={1}>
-                  {userProfile?.homeLocationName || 'Dingboche, Solukhumbu, Nepal'}
+                  {userLocation?.shortName || userLocation?.address || userProfile?.homeLocationName || 'Location Not Set'}
                 </Text>
               </View>
 
               <View style={styles.metaRow}>
                 <Phone size={13} color={Colors.slateFog} />
-                <Text style={styles.metaText}>{userProfile?.phone || '+977 9841-582910'}</Text>
+                <Text style={styles.metaText}>{userProfile?.phone || 'Emergency line active'}</Text>
               </View>
             </View>
           </View>
@@ -151,7 +155,7 @@ export default function ProfileScreen() {
             <View style={styles.altitudePill}>
               <View style={styles.tealDot} />
               <Text style={styles.altitudePillText}>
-                {userProfile?.elevationM || 4410}m Elev.
+                {userLocation?.elevationM ?? userProfile?.elevationM ?? 0}m Elev.
               </Text>
             </View>
           </View>
@@ -224,33 +228,42 @@ export default function ProfileScreen() {
 
           {/* Contact Items */}
           <View style={styles.contactsList}>
-            {(userProfile?.contacts || []).map((contact) => (
-              <View key={contact.contactId} style={styles.contactItemCard}>
-                <View style={styles.contactItemLeft}>
-                  <View style={styles.contactIconCircle}>
-                    <Users size={16} color={Colors.moraineInk} />
-                  </View>
-                  <View>
-                    <View style={styles.contactNameRow}>
-                      <Text style={styles.contactItemName}>{contact.name}</Text>
-                      <Text style={styles.contactItemRelation}>
-                        ({contact.relation})
-                      </Text>
-                    </View>
-                    <Text style={styles.contactItemPhone}>{contact.phone}</Text>
-                  </View>
-                </View>
-
-                <Switch
-                  value={contact.isActive}
-                  onValueChange={() => toggleContact(contact.contactId)}
-                  trackColor={{
-                    false: Colors.borderSubtle,
-                    true: Colors.cirqueTeal,
-                  }}
-                />
+            {(userProfile?.contacts || []).length === 0 ? (
+              <View style={styles.emptyContactsCard}>
+                <Text style={styles.emptyContactsTitle}>No SOS Contacts Enrolled</Text>
+                <Text style={styles.emptyContactsDesc}>
+                  Add your family members or friends below so their phones receive your real distress signal during a flood breach.
+                </Text>
               </View>
-            ))}
+            ) : (
+              (userProfile?.contacts || []).map((contact) => (
+                <View key={contact.contactId} style={styles.contactItemCard}>
+                  <View style={styles.contactItemLeft}>
+                    <View style={styles.contactIconCircle}>
+                      <Users size={16} color={Colors.moraineInk} />
+                    </View>
+                    <View>
+                      <View style={styles.contactNameRow}>
+                        <Text style={styles.contactItemName}>{contact.name}</Text>
+                        <Text style={styles.contactItemRelation}>
+                          ({contact.relation})
+                        </Text>
+                      </View>
+                      <Text style={styles.contactItemPhone}>{contact.phone}</Text>
+                    </View>
+                  </View>
+
+                  <Switch
+                    value={contact.isActive}
+                    onValueChange={() => toggleContact(contact.contactId)}
+                    trackColor={{
+                      false: Colors.borderSubtle,
+                      true: Colors.cirqueTeal,
+                    }}
+                  />
+                </View>
+              ))
+            )}
 
             {/* Add Contact Action Button */}
             <Pressable
@@ -375,6 +388,16 @@ export default function ProfileScreen() {
 
         {/* Sign Out Button & Firmware Footer */}
         <View style={styles.footerCol}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.switchUserButton,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => router.push('/login' as any)}>
+            <Users size={16} color={Colors.meltwater} />
+            <Text style={styles.switchUserText}>Switch User / Backend Auth</Text>
+          </Pressable>
+
           <Pressable
             style={({ pressed }) => [
               styles.signOutButton,
@@ -608,6 +631,26 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+  emptyContactsCard: {
+    backgroundColor: Colors.surfaceContainerLow,
+    borderRadius: Radii.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    alignItems: 'center',
+    gap: 4,
+  },
+  emptyContactsTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.moraineInk,
+  },
+  emptyContactsDesc: {
+    fontSize: 11,
+    color: Colors.slateFog,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
   contactItemCard: {
     backgroundColor: Colors.firn,
     padding: Spacing.md,
@@ -787,6 +830,23 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: Spacing.md,
     paddingHorizontal: Spacing.marginMobile,
+  },
+  switchUserButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: Colors.borderSubtle,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: Radii.button,
+    marginBottom: 4,
+  },
+  switchUserText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.meltwater,
   },
   signOutButton: {
     flexDirection: 'row',

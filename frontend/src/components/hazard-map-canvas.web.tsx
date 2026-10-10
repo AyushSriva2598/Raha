@@ -1,14 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import * as maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Colors } from '@/constants/tokens';
 import { SafePoint } from '@/types';
 import {
   DINGBOCHE_COORDINATES,
-  MAP_CONFIG,
   HAZARD_INUNDATION_GEOJSON,
   SAFE_ESCAPE_ROUTE_GEOJSON,
+  GOOGLE_MAPS_API_KEY,
 } from '@/constants/geoData';
 
 interface HazardMapCanvasProps {
@@ -19,6 +17,13 @@ interface HazardMapCanvasProps {
   safePoints: SafePoint[];
 }
 
+declare global {
+  interface Window {
+    google?: any;
+    initGoogleMaps?: () => void;
+  }
+}
+
 export function HazardMapCanvas({
   mode,
   targetPerson,
@@ -27,192 +32,181 @@ export function HazardMapCanvas({
   safePoints,
 }: HazardMapCanvasProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const googleMapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const [mapType, setMapType] = useState<'terrain' | 'hybrid'>('terrain');
 
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    // Dynamically inject Google Maps JS script
+    const loadGoogleMaps = () => {
+      if (window.google?.maps) {
+        initMap();
+        return;
+      }
 
-    // Initialize MapLibre GL instance
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: MAP_CONFIG.styleUrl,
-      center: DINGBOCHE_COORDINATES,
-      zoom: MAP_CONFIG.defaultZoom,
-      pitch: 45, // 3D mountain topography pitch
-      bearing: 15,
-      attributionControl: false,
-    });
-
-    mapRef.current = map;
-
-    // Add navigation controls (Zoom + 3D Compass)
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
-
-    map.on('load', () => {
-      // 1. Add GLOF Inundation Hazard Polygon Layer
-      map.addSource('hazard-inundation', {
-        type: 'geojson',
-        data: HAZARD_INUNDATION_GEOJSON,
-      });
-
-      map.addLayer({
-        id: 'hazard-inundation-fill',
-        type: 'fill',
-        source: 'hazard-inundation',
-        paint: {
-          'fill-color': Colors.alarmRed,
-          'fill-opacity': 0.25,
-        },
-      });
-
-      map.addLayer({
-        id: 'hazard-inundation-line',
-        type: 'line',
-        source: 'hazard-inundation',
-        paint: {
-          'line-color': Colors.alarmRed,
-          'line-width': 2.5,
-          'line-dasharray': [3, 2],
-        },
-      });
-
-      // 2. Add Safe Evacuation Escape Route Layer
-      map.addSource('safe-escape-route', {
-        type: 'geojson',
-        data: SAFE_ESCAPE_ROUTE_GEOJSON,
-      });
-
-      // White underlay casing for high visibility over mountain terrain
-      map.addLayer({
-        id: 'safe-route-casing',
-        type: 'line',
-        source: 'safe-escape-route',
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
-        paint: {
-          'line-color': '#FFFFFF',
-          'line-width': 8,
-        },
-      });
-
-      // Active teal escape line
-      map.addLayer({
-        id: 'safe-route-line',
-        type: 'line',
-        source: 'safe-escape-route',
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
-        paint: {
-          'line-color': Colors.cirqueTeal,
-          'line-width': 4.5,
-        },
-      });
-    });
-
-    return () => {
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
-      map.remove();
+      const existingScript = document.getElementById('google-maps-script');
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.id = 'google-maps-script';
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=geometry`;
+        script.async = true;
+        script.defer = true;
+        script.onload = () => initMap();
+        document.head.appendChild(script);
+      } else {
+        existingScript.addEventListener('load', () => initMap());
+      }
     };
-  }, []);
 
-  // Update Hazard Inundation style when mode changes
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.isStyleLoaded() || !map.getLayer('hazard-inundation-fill')) return;
+    const initMap = () => {
+      if (!mapContainerRef.current || !window.google?.maps) return;
 
-    map.setPaintProperty(
-      'hazard-inundation-fill',
-      'fill-opacity',
-      mode === 'EVACUATE' ? 0.35 : 0.18
-    );
-  }, [mode]);
-
-  // Update Markers (Resident + Safe Shelters)
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    // Clear existing markers
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-
-    // 1. User Location Marker
-    const userEl = document.createElement('div');
-    userEl.className = 'raha-user-marker';
-    userEl.style.display = 'flex';
-    userEl.style.flexDirection = 'column';
-    userEl.style.alignItems = 'center';
-    userEl.style.cursor = 'pointer';
-    userEl.innerHTML = `
-      <div style="background-color: ${Colors.meltwater}; width: 18px; height: 18px; border-radius: 50%; border: 3px solid #FFFFFF; box-shadow: 0 0 10px rgba(32,138,239,0.8);"></div>
-      <div style="background: rgba(14,24,37,0.85); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 12px; margin-top: 4px; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap;">
-        ${targetPerson === 'ME' ? 'You • Dingboche (4,410m)' : 'Meena • Dingboche (4,410m)'}
-      </div>
-    `;
-
-    const userMarker = new maplibregl.Marker({ element: userEl })
-      .setLngLat(DINGBOCHE_COORDINATES)
-      .addTo(map);
-    markersRef.current.push(userMarker);
-
-    // 2. Safe Point Markers
-    safePoints.forEach((sp) => {
-      const isSelected = selectedSafePoint?.pointId === sp.pointId;
-      const el = document.createElement('div');
-      el.className = 'raha-safepoint-marker';
-      el.style.display = 'flex';
-      el.style.flexDirection = 'column';
-      el.style.alignItems = 'center';
-      el.style.cursor = 'pointer';
-
-      const badgeColor = isSelected ? Colors.cirqueTeal : '#0F6CBD';
-      const scale = isSelected ? 'scale(1.15)' : 'scale(1.0)';
-
-      el.innerHTML = `
-        <div style="transform: ${scale}; transition: transform 0.2s ease; background-color: ${badgeColor}; width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid #FFFFFF; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-weight: bold; font-size: 12px;">
-          ▲
-        </div>
-        <div style="background: rgba(14,24,37,0.9); color: #FFFFFF; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 8px; margin-top: 4px; border: 1px solid ${badgeColor}; white-space: nowrap;">
-          ${sp.name} (+${sp.elevationGainM}m)
-        </div>
-      `;
-
-      el.addEventListener('click', () => {
-        onSelectSafePoint(sp);
-        map.flyTo({
-          center: [sp.coordinates.longitude, sp.coordinates.latitude],
-          zoom: 15.2,
-          speed: 1.2,
-        });
+      const map = new window.google.maps.Map(mapContainerRef.current, {
+        center: { lat: DINGBOCHE_COORDINATES[1], lng: DINGBOCHE_COORDINATES[0] },
+        zoom: 14,
+        mapTypeId: 'terrain',
+        disableDefaultUI: false,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+        ],
       });
 
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([sp.coordinates.longitude, sp.coordinates.latitude])
-        .addTo(map);
+      googleMapRef.current = map;
 
-      markersRef.current.push(marker);
-    });
-  }, [safePoints, selectedSafePoint, targetPerson, onSelectSafePoint]);
+      // 1. Hazard Inundation Polygon
+      const polygonCoords = (
+        HAZARD_INUNDATION_GEOJSON.features[0].geometry as any
+      ).coordinates[0].map(([lng, lat]: [number, number]) => ({ lat, lng }));
 
-  // Fly to selected safe point when selection changes externally
+      new window.google.maps.Polygon({
+        paths: polygonCoords,
+        strokeColor: Colors.alarmRed,
+        strokeOpacity: 0.9,
+        strokeWeight: 2.5,
+        fillColor: Colors.alarmRed,
+        fillOpacity: mode === 'EVACUATE' ? 0.35 : 0.2,
+        map,
+      });
+
+      // 2. Escape Ridge Route Polyline
+      const routeCoords = (
+        SAFE_ESCAPE_ROUTE_GEOJSON.features[0].geometry as any
+      ).coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
+
+      // White casing
+      new window.google.maps.Polyline({
+        path: routeCoords,
+        strokeColor: '#FFFFFF',
+        strokeOpacity: 0.95,
+        strokeWeight: 8,
+        map,
+      });
+
+      // Active teal route
+      new window.google.maps.Polyline({
+        path: routeCoords,
+        strokeColor: Colors.cirqueTeal,
+        strokeOpacity: 1.0,
+        strokeWeight: 4.5,
+        map,
+      });
+
+      // 3. User Marker
+      new window.google.maps.Marker({
+        position: { lat: DINGBOCHE_COORDINATES[1], lng: DINGBOCHE_COORDINATES[0] },
+        map,
+        title: targetPerson === 'ME' ? 'You • Dingboche (4,410m)' : 'Meena • Dingboche',
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: Colors.meltwater,
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 3,
+        },
+      });
+
+      // 4. Safe Point Markers
+      markersRef.current.forEach((m) => m.setMap(null));
+      markersRef.current = [];
+
+      safePoints.forEach((sp) => {
+        const marker = new window.google.maps.Marker({
+          position: { lat: sp.coordinates.latitude, lng: sp.coordinates.longitude },
+          map,
+          title: `${sp.name} (+${sp.elevationGainM}m)`,
+          icon: {
+            path: 'M 0,-14 L 12,10 L -12,10 Z',
+            scale: 0.9,
+            fillColor: Colors.cirqueTeal,
+            fillOpacity: 1,
+            strokeColor: '#FFFFFF',
+            strokeWeight: 2,
+          },
+        });
+
+        marker.addListener('click', () => {
+          onSelectSafePoint(sp);
+        });
+
+        markersRef.current.push(marker);
+      });
+    };
+
+    loadGoogleMaps();
+  }, [mode, targetPerson]);
+
+  // Center on safe point when selected
   useEffect(() => {
-    if (!mapRef.current || !selectedSafePoint) return;
-    mapRef.current.flyTo({
-      center: [selectedSafePoint.coordinates.longitude, selectedSafePoint.coordinates.latitude],
-      zoom: 15,
-      speed: 1.2,
-    });
+    if (selectedSafePoint && googleMapRef.current && window.google?.maps) {
+      googleMapRef.current.panTo({
+        lat: selectedSafePoint.coordinates.latitude,
+        lng: selectedSafePoint.coordinates.longitude,
+      });
+      googleMapRef.current.setZoom(15);
+    }
   }, [selectedSafePoint]);
+
+  // Switch map type
+  const handleMapTypeChange = (type: 'terrain' | 'hybrid') => {
+    setMapType(type);
+    if (googleMapRef.current && window.google?.maps) {
+      googleMapRef.current.setMapTypeId(type);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }} />
+      {/* HTML container for Google Maps */}
+      <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Layer switch buttons */}
+      <View style={styles.layerSwitcher}>
+        <TouchableOpacity
+          style={[styles.layerButton, mapType === 'terrain' && styles.layerButtonActive]}
+          onPress={() => handleMapTypeChange('terrain')}>
+          <Text style={[styles.layerButtonText, mapType === 'terrain' && styles.layerButtonTextActive]}>
+            🏔️ Terrain
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.layerButton, mapType === 'hybrid' && styles.layerButtonActive]}
+          onPress={() => handleMapTypeChange('hybrid')}>
+          <Text style={[styles.layerButtonText, mapType === 'hybrid' && styles.layerButtonTextActive]}>
+            🛰️ Satellite
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Google Maps Attribution Badge */}
+      <View style={styles.poweredByBadge}>
+        <Text style={styles.poweredByText}>Google Maps API Connected</Text>
+      </View>
     </View>
   );
 }
@@ -224,5 +218,50 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#0F1A24',
     overflow: 'hidden',
+  },
+  layerSwitcher: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(14, 24, 37, 0.88)',
+    borderRadius: 20,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    zIndex: 30,
+  },
+  layerButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  layerButtonActive: {
+    backgroundColor: Colors.meltwater,
+  },
+  layerButtonText: {
+    color: '#D8EAFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  layerButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  poweredByBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 10,
+    backgroundColor: 'rgba(14, 24, 37, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    zIndex: 30,
+  },
+  poweredByText: {
+    color: '#9ACBE8',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });
