@@ -14,7 +14,6 @@ import {
 import { Colors, Radii, Shadows, Spacing } from '@/constants/tokens';
 import { useAppStore } from '@/store/useAppStore';
 import { AddEmergencyContactModal } from '@/components/add-contact-modal';
-import { DemoScenarioBar } from '@/components/demo-scenario-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Languages,
@@ -372,17 +371,6 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
           </View>
-        </View>
-
-        {/* Demo Scenario Replay Switcher */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            {strings.profile.demoScenarioTitle}
-          </Text>
-          <Text style={styles.sectionExplainer}>
-            {strings.profile.demoScenarioDesc}
-          </Text>
-          <DemoScenarioBar />
         </View>
 
         {/* Sign Out Button & Firmware Footer */}

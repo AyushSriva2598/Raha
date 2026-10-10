@@ -95,8 +95,6 @@ export interface Translations {
     liveStationsCount: string;
     signOut: string;
     privacyNotice: string;
-    demoScenarioTitle: string;
-    demoScenarioDesc: string;
   };
   sos: {
     dialogTitle: string;
@@ -201,8 +199,6 @@ export const TRANSLATIONS: Record<LanguageCode, Translations> = {
       liveStationsCount: '3 Live',
       signOut: 'Sign out',
       privacyNotice: 'Compliant with DPDP Act 2023 & Nepal Disaster Governance framework.',
-      demoScenarioTitle: 'Demo Scenario Switcher',
-      demoScenarioDesc: 'Non-production test tool to evaluate Clear, Watch, Warning, and Evacuate states.',
     },
     sos: {
       dialogTitle: 'Emergency SOS Trigger',
@@ -305,8 +301,6 @@ export const TRANSLATIONS: Record<LanguageCode, Translations> = {
       liveStationsCount: '3 ऑनलाइन',
       signOut: 'लॉग आउट',
       privacyNotice: 'डीपीडीपी अधिनियम 2023 और आपदा नियमों के अनुरूप।',
-      demoScenarioTitle: 'डेमो परिदृश्य स्विचर',
-      demoScenarioDesc: 'सुरक्षित, निगरानी, चेतावनी, और निकासी स्तरों की जांच हेतु परीक्षण साधन।',
     },
     sos: {
       dialogTitle: 'आपातकालीन SOS सक्रिय',
@@ -409,8 +403,6 @@ export const TRANSLATIONS: Record<LanguageCode, Translations> = {
       liveStationsCount: '३ चालु',
       signOut: 'बाहिरिनुहोस्',
       privacyNotice: 'विपद् व्यवस्थापन ऐन तथा गोपनीयता निर्देशिका बमोजिम।',
-      demoScenarioTitle: 'डेमो अवस्था स्विचर',
-      demoScenarioDesc: 'सुरक्षित, निगरानी, चेतावनी र निकासी स्तरहरू परीक्षण गर्ने सुविधा।',
     },
     sos: {
       dialogTitle: 'आपतकालीन SOS सुरु',

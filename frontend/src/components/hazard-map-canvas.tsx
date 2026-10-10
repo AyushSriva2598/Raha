@@ -1,12 +1,13 @@
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions, Pressable } from 'react-native';
-import Svg, { Path, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { Colors, Radii, Shadows, Spacing } from '@/constants/tokens';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import MapView, { Marker, Polygon, Polyline, UrlTile, type Region } from 'react-native-maps';
+import { Colors } from '@/constants/tokens';
 import { SafePoint } from '@/types';
-import { ShieldCheck, Cross, Compass, Navigation, Mountain } from 'lucide-react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const MAP_HEIGHT = 460;
+import {
+  DINGBOCHE_COORDINATES,
+  HAZARD_INUNDATION_GEOJSON,
+  SAFE_ESCAPE_ROUTE_GEOJSON,
+} from '@/constants/geoData';
 
 interface HazardMapCanvasProps {
   mode: 'EVACUATE' | 'NAVIGATE';
@@ -23,406 +24,246 @@ export function HazardMapCanvas({
   onSelectSafePoint,
   safePoints,
 }: HazardMapCanvasProps) {
-  const isNavigateMode = mode === 'NAVIGATE';
-  const primarySafePoint = selectedSafePoint || safePoints[0];
+  const mapRef = useRef<MapView>(null);
 
-  const isOther = targetPerson === 'OTHER';
-  // Coordinates based on who is selected
-  const userPinX = isOther ? 130 : 96;
-  const userPinY = isOther ? 320 : 260;
+  // Convert GeoJSON Polygon [lng, lat] to react-native-maps { latitude, longitude }
+  const hazardPolygonCoords = useMemo(() => {
+    const feature = HAZARD_INUNDATION_GEOJSON.features[0];
+    if (feature && feature.geometry.type === 'Polygon') {
+      return feature.geometry.coordinates[0].map(([lng, lat]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
+    }
+    return [];
+  }, []);
+
+  // Convert GeoJSON LineString [lng, lat] to react-native-maps { latitude, longitude }
+  const escapeRouteCoords = useMemo(() => {
+    const feature = SAFE_ESCAPE_ROUTE_GEOJSON.features[0];
+    if (feature && feature.geometry.type === 'LineString') {
+      return feature.geometry.coordinates.map(([lng, lat]) => ({
+        latitude: lat,
+        longitude: lng,
+      }));
+    }
+    return [];
+  }, []);
+
+  const initialRegion: Region = useMemo(
+    () => ({
+      latitude: DINGBOCHE_COORDINATES[1],
+      longitude: DINGBOCHE_COORDINATES[0],
+      latitudeDelta: 0.038,
+      longitudeDelta: 0.038,
+    }),
+    []
+  );
+
+  // Smoothly pan and zoom camera when a safe point is selected
+  useEffect(() => {
+    if (selectedSafePoint && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: selectedSafePoint.coordinates.latitude,
+          longitude: selectedSafePoint.coordinates.longitude,
+          latitudeDelta: 0.018,
+          longitudeDelta: 0.018,
+        },
+        900
+      );
+    }
+  }, [selectedSafePoint]);
 
   return (
     <View style={styles.container}>
-      {/* SVG Cartographic Layer */}
-      <Svg
-        width={SCREEN_WIDTH}
-        height={MAP_HEIGHT}
-        viewBox="0 0 390 540"
-        preserveAspectRatio="none"
-        style={StyleSheet.absoluteFill}>
-        <Defs>
-          <LinearGradient id="floodGrad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={Colors.warning} stopOpacity={0.18} />
-            <Stop offset="1" stopColor={Colors.alarmRed} stopOpacity={0.24} />
-          </LinearGradient>
-          <LinearGradient id="safeRouteGrad" x1="0" y1="1" x2="1" y2="0">
-            <Stop offset="0" stopColor={Colors.cirqueTeal} />
-            <Stop offset="1" stopColor="#1EAF9D" />
-          </LinearGradient>
-        </Defs>
-
-        {/* Topographic Contour Lines - fill="none" prevents black fills */}
-        <G stroke="#CDDBE4" strokeWidth={1.5} strokeDasharray="4 4" fill="none">
-          <Path d="M -50 180 Q 90 200 210 160 T 450 200" fill="none" />
-          <Path d="M -50 240 Q 120 270 240 220 T 450 260" fill="none" />
-          <Path d="M -50 310 Q 80 340 220 280 T 450 330" fill="none" />
-          <Path d="M -50 110 Q 140 140 270 90 T 450 130" fill="none" />
-          <Path d="M -50 400 Q 110 430 250 380 T 450 420" fill="none" />
-          <Path d="M -50 480 Q 130 500 260 450 T 450 490" fill="none" />
-        </G>
-
-        {/* Dudh Koshi River Trunk Bed */}
-        <Path
-          d="M 60 550 C 90 440, 110 370, 140 310 C 170 250, 205 180, 240 70 C 255 20, 260 -10, 265 -50"
-          stroke={Colors.mapWater}
-          strokeWidth={28}
-          strokeLinecap="round"
-          fill="none"
-        />
-        <Path
-          d="M 60 550 C 90 440, 110 370, 140 310 C 170 250, 205 180, 240 70 C 255 20, 260 -10, 265 -50"
-          stroke="#70B2DC"
-          strokeWidth={8}
-          strokeLinecap="round"
-          fill="none"
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        initialRegion={initialRegion}
+        showsCompass={true}
+        showsScale={true}
+        mapType="terrain">
+        {/* OpenStreetMap Tile Layer for crisp topography without requiring Google API Keys */}
+        <UrlTile
+          urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maximumZ={19}
+          flipY={false}
+          zIndex={-1}
         />
 
-        {/* River Water Ripple accents */}
-        <Path d="M 125 330 Q 130 315 135 305" stroke="#FFFFFF" strokeWidth={2} opacity={0.8} fill="none" />
-        <Path d="M 180 230 Q 185 215 190 205" stroke="#FFFFFF" strokeWidth={2} opacity={0.8} fill="none" />
-        <Path d="M 230 110 Q 234 98 237 90" stroke="#FFFFFF" strokeWidth={2} opacity={0.8} fill="none" />
+        {/* 1. GLOF Inundation Hazard Polygon Corridor */}
+        {hazardPolygonCoords.length > 0 && (
+          <Polygon
+            coordinates={hazardPolygonCoords}
+            strokeColor={Colors.alarmRed}
+            strokeWidth={2.5}
+            fillColor={mode === 'EVACUATE' ? 'rgba(214, 69, 41, 0.35)' : 'rgba(214, 69, 41, 0.20)'}
+            zIndex={2}
+          />
+        )}
 
-        {/* GLOF Hazard Flood Inundation Buffer Zone */}
-        <Path
-          d="M 20 550 C 60 430, 80 370, 105 310 C 135 240, 165 170, 205 60 C 220 20, 230 -20, 235 -50 L 300 -50 C 290 20, 275 90, 245 190 C 215 280, 180 340, 155 420 C 130 480, 115 520, 105 550 Z"
-          fill="url(#floodGrad)"
-        />
+        {/* 2. Safe Evacuation Escape Route (Ridge line) */}
+        {escapeRouteCoords.length > 0 && (
+          <>
+            {/* White casing underlay for high visibility over mountain terrain */}
+            <Polyline
+              coordinates={escapeRouteCoords}
+              strokeColor="#FFFFFF"
+              strokeWidth={7}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={3}
+            />
+            {/* Active cirque teal escape route */}
+            <Polyline
+              coordinates={escapeRouteCoords}
+              strokeColor={Colors.cirqueTeal}
+              strokeWidth={4.5}
+              lineCap="round"
+              lineJoin="round"
+              zIndex={4}
+            />
+          </>
+        )}
 
-        {/* Hazard Perimeter Casing (Dashed Alarm Red) */}
-        <Path
-          d="M 105 310 C 135 240, 165 170, 205 60"
-          stroke={Colors.alarmRed}
-          strokeWidth={1.8}
-          strokeDasharray="5 4"
-          opacity={0.7}
-          fill="none"
-        />
-
-        {/* Safe Evacuation Route Casing (White Underlay 10pt) */}
-        <Path
-          d={
-            isOther
-              ? 'M 140 330 C 160 300, 190 290, 220 250 C 250 210, 280 180, 310 120'
-              : 'M 108 270 C 125 250, 160 260, 195 240 C 230 220, 265 195, 305 110'
-          }
-          stroke="#FFFFFF"
-          strokeWidth={10}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-
-        {/* Safe Evacuation Route Active Line (Cirque Teal 6pt) */}
-        <Path
-          d={
-            isOther
-              ? 'M 140 330 C 160 300, 190 290, 220 250 C 250 210, 280 180, 310 120'
-              : 'M 108 270 C 125 250, 160 260, 195 240 C 230 220, 265 195, 305 110'
-          }
-          stroke={isNavigateMode ? Colors.meltwater : 'url(#safeRouteGrad)'}
-          strokeWidth={6}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-
-        {/* Waypoint Markers along Safe Ridge */}
-        <Circle cx={195} cy={240} r={3.5} fill="#FFFFFF" />
-        <Circle cx={265} cy={195} r={3.5} fill="#FFFFFF" />
-      </Svg>
-
-      {/* River Annotation */}
-      <View style={styles.riverLabelContainer}>
-        <Text style={styles.riverLabelText}>Dudh Koshi River ➔</Text>
-      </View>
-
-      {/* Live User Pin */}
-      <View style={[styles.userPin, { left: userPinX, top: userPinY }]}>
-        <View style={styles.userPinRing} />
-        <View style={styles.userPinDot} />
-        <View style={styles.userPinBadge}>
-          <Text style={styles.userPinText}>
-            {targetPerson === 'ME' ? 'You are here (2,680m)' : 'Meena (2,710m)'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Destination Marker 1: Namche Health Post Safe Point */}
-      <Pressable
-        style={styles.destinationPin}
-        onPress={() => safePoints[0] && onSelectSafePoint(safePoints[0])}>
-        <View
-          style={[
-            styles.destinationIconCircle,
-            primarySafePoint?.pointId === safePoints[0]?.pointId &&
-              styles.selectedPinCircle,
-          ]}>
-          <Cross size={18} color="#FFFFFF" strokeWidth={3} />
-        </View>
-        <View style={styles.destinationPointer} />
-
-        {/* Floating Dossier Label */}
-        <View style={styles.destinationCard}>
-          <Text style={styles.destinationCardTitle} numberOfLines={1}>
-            Namche Health Post
-          </Text>
-          <View style={styles.destinationCardRow}>
-            <ShieldCheck size={12} color={Colors.cirqueTeal} />
-            <Text style={styles.destinationCardSub}>Safe Point • +210m</Text>
+        {/* 3. User Location Marker */}
+        <Marker
+          coordinate={{
+            latitude: DINGBOCHE_COORDINATES[1],
+            longitude: DINGBOCHE_COORDINATES[0],
+          }}
+          title={targetPerson === 'ME' ? 'Your Location' : 'Meena Location'}
+          description="Dingboche (4,410m)"
+          zIndex={10}>
+          <View style={styles.userMarkerContainer}>
+            <View style={styles.userDot} />
+            <View style={styles.userPill}>
+              <Text style={styles.userPillText}>
+                {targetPerson === 'ME' ? 'You • Dingboche' : 'Meena • Dingboche'}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.destinationCardWalk}>42 min uphill</Text>
-        </View>
-      </Pressable>
+        </Marker>
 
-      {/* Destination Marker 2: Dingboche Upper Ridge Gompa */}
-      {safePoints[1] && (
-        <Pressable
-          style={styles.secondaryPin}
-          onPress={() => onSelectSafePoint(safePoints[1])}>
-          <View
-            style={[
-              styles.secondaryIconCircle,
-              primarySafePoint?.pointId === safePoints[1]?.pointId &&
-                styles.selectedSecondaryPinCircle,
-            ]}>
-            <Mountain size={14} color="#FFFFFF" />
-          </View>
-          <View style={styles.secondaryBadge}>
-            <Text style={styles.secondaryText}>Upper Ridge Gompa</Text>
-            <Text style={styles.secondarySubText}>+180m • 31 min</Text>
-          </View>
-        </Pressable>
-      )}
-
-      {/* Destination Marker 3: Nangkarshang Peak Camp */}
-      {safePoints[2] && (
-        <Pressable
-          style={styles.thirdPin}
-          onPress={() => onSelectSafePoint(safePoints[2])}>
-          <View
-            style={[
-              styles.thirdIconCircle,
-              primarySafePoint?.pointId === safePoints[2]?.pointId &&
-                styles.selectedSecondaryPinCircle,
-            ]}>
-            <Navigation size={12} color="#FFFFFF" />
-          </View>
-          <View style={styles.thirdBadge}>
-            <Text style={styles.secondaryText}>Nangkarshang Camp</Text>
-          </View>
-        </Pressable>
-      )}
-
-      {/* Compass / Recenter Control Button */}
-      <Pressable style={styles.recenterButton}>
-        <Compass size={22} color={Colors.meltwater} />
-      </Pressable>
+        {/* 4. Safe Point Markers */}
+        {safePoints.map((sp) => {
+          const isSelected = selectedSafePoint?.pointId === sp.pointId;
+          return (
+            <Marker
+              key={sp.pointId}
+              coordinate={{
+                latitude: sp.coordinates.latitude,
+                longitude: sp.coordinates.longitude,
+              }}
+              title={sp.name}
+              description={`+${sp.elevationGainM}m elevation`}
+              onPress={() => onSelectSafePoint(sp)}
+              zIndex={isSelected ? 20 : 10}>
+              <View style={styles.spMarkerContainer}>
+                <View style={[styles.spBadge, isSelected && styles.spBadgeSelected]}>
+                  <Text style={styles.spBadgeText}>▲</Text>
+                </View>
+                <View style={[styles.spPill, isSelected && styles.spPillSelected]}>
+                  <Text style={[styles.spPillText, isSelected && styles.spPillTextSelected]}>
+                    {sp.name} (+{sp.elevationGainM}m)
+                  </Text>
+                </View>
+              </View>
+            </Marker>
+          );
+        })}
+      </MapView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    height: 480,
     width: '100%',
-    height: MAP_HEIGHT,
-    backgroundColor: '#EEF3F5',
     position: 'relative',
+    backgroundColor: '#0F1A24',
     overflow: 'hidden',
   },
-  riverLabelContainer: {
-    position: 'absolute',
-    left: 45,
-    bottom: 120,
-    transform: [{ rotate: '-52deg' }],
-    opacity: 0.75,
-  },
-  riverLabelText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.meltwater,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  userPin: {
-    position: 'absolute',
+  userMarkerContainer: {
     alignItems: 'center',
-    zIndex: 20,
+    justifyContent: 'center',
   },
-  userPinRing: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(30, 120, 184, 0.25)',
-    position: 'absolute',
-    top: -8,
-  },
-  userPinDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+  userDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: Colors.meltwater,
-    borderWidth: 2.5,
+    borderWidth: 3,
     borderColor: '#FFFFFF',
-    ...Shadows.subtle,
+    shadowColor: Colors.meltwater,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  userPinBadge: {
-    marginTop: 4,
-    backgroundColor: Colors.moraineInk,
+  userPill: {
+    backgroundColor: 'rgba(14, 24, 37, 0.9)',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: Radii.full,
-    ...Shadows.subtle,
-  },
-  userPinText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  destinationPin: {
-    position: 'absolute',
-    right: 18,
-    top: 24,
-    alignItems: 'center',
-    zIndex: 25,
-  },
-  destinationIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.cirqueTeal,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
-    ...Shadows.card,
-  },
-  selectedPinCircle: {
-    borderColor: '#FAD02C',
-    borderWidth: 3.5,
-    transform: [{ scale: 1.08 }],
-  },
-  destinationPointer: {
-    width: 8,
-    height: 8,
-    backgroundColor: Colors.cirqueTeal,
-    transform: [{ rotate: '45deg' }],
-    marginTop: -4,
-  },
-  destinationCard: {
+    borderRadius: 12,
     marginTop: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radii.md,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    alignItems: 'center',
-    maxWidth: 160,
-    ...Shadows.card,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
-  destinationCardTitle: {
+  userPillText: {
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
-    color: Colors.moraineInk,
-    textAlign: 'center',
   },
-  destinationCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 1,
-  },
-  destinationCardSub: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Colors.cirqueTeal,
-  },
-  destinationCardWalk: {
-    fontSize: 9,
-    color: Colors.slateFog,
-    marginTop: 1,
-  },
-  secondaryPin: {
-    position: 'absolute',
-    left: 24,
-    top: 60,
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  secondaryIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.meltwater,
+  spMarkerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...Shadows.subtle,
   },
-  selectedSecondaryPinCircle: {
-    borderColor: '#FAD02C',
-    borderWidth: 3,
-  },
-  secondaryBadge: {
-    marginTop: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: Radii.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: Colors.moraineInk,
-  },
-  secondarySubText: {
-    fontSize: 8,
-    color: Colors.cirqueTeal,
-    fontWeight: '600',
-  },
-  thirdPin: {
-    position: 'absolute',
-    right: 30,
-    bottom: 90,
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  thirdIconCircle: {
+  spBadge: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
+    backgroundColor: '#0F6CBD',
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
-  },
-  thirdBadge: {
-    marginTop: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: Radii.sm,
-    borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-  },
-  recenterButton: {
-    position: 'absolute',
-    right: Spacing.marginMobile,
-    bottom: 24,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  spBadgeSelected: {
+    backgroundColor: Colors.cirqueTeal,
+    transform: [{ scale: 1.15 }],
+  },
+  spBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  spPill: {
+    backgroundColor: 'rgba(14, 24, 37, 0.92)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 4,
     borderWidth: 1,
-    borderColor: Colors.borderSubtle,
-    zIndex: 30,
-    ...Shadows.card,
+    borderColor: '#0F6CBD',
+  },
+  spPillSelected: {
+    borderColor: Colors.cirqueTeal,
+  },
+  spPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  spPillTextSelected: {
+    color: Colors.cirqueTeal,
+    fontWeight: '700',
   },
 });

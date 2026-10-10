@@ -229,7 +229,6 @@ export const ASSESSMENTS_BY_LEVEL: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'GlacialRisk-Chronos-XGB-v2.1',
     authorityBroadcastCode: 'NEP-GLOF-STABLE',
-    isSimulated: false,
   },
   WATCH: {
     lakeId: 'imja-tsho',
@@ -250,7 +249,6 @@ export const ASSESSMENTS_BY_LEVEL: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'GlacialRisk-Chronos-XGB-v2.1',
     authorityBroadcastCode: 'NEP-GLOF-WATCH-03',
-    isSimulated: true,
   },
   WARNING: {
     lakeId: 'imja-tsho',
@@ -272,7 +270,6 @@ export const ASSESSMENTS_BY_LEVEL: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'GlacialRisk-Chronos-XGB-v2.1',
     authorityBroadcastCode: 'NEP-GLOF-WARN-IMJA',
-    isSimulated: true,
   },
   EVACUATE: {
     lakeId: 'imja-tsho',
@@ -294,7 +291,6 @@ export const ASSESSMENTS_BY_LEVEL: Record<AlertLevel, LakeAssessment> = {
     ],
     modelVersion: 'GlacialRisk-Chronos-XGB-v2.1',
     authorityBroadcastCode: 'NEP-GLOF-ZONE4-URGENT',
-    isSimulated: true,
   },
 };
 

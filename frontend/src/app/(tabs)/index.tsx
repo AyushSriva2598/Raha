@@ -13,7 +13,6 @@ import { Colors, Radii, Shadows, Spacing } from '@/constants/tokens';
 import { useAppStore } from '@/store/useAppStore';
 import { WaterlineHero } from '@/components/waterline';
 import { MiniMapCard } from '@/components/mini-map';
-import { DemoScenarioBar } from '@/components/demo-scenario-bar';
 import { EmergencySosModal } from '@/components/sos-modal';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -130,9 +129,6 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
-
-        {/* Non-production Demo Scenario Replay Bar */}
-        <DemoScenarioBar />
 
         {/* Dynamic Waterline & Status Hero */}
         <WaterlineHero

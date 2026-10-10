@@ -22,35 +22,44 @@ A life-critical, mobile-first Early Warning System (EWS) for downstream Himalaya
 │   ├── package.json           # Frontend dependencies
 │   ├── tsconfig.json          # TypeScript strict configuration
 │   └── eslint.config.js       # ESLint configuration
-└── backend/                   # (Target directory for AWS AppSync / GraphQL / Lambda integrations)
+├── backend/                   # Lightweight Product Backend (Express + WS + PostGIS + AWS Bridge)
+│   ├── src/
+│   │   ├── config/            # Server configuration & environment variables
+│   │   ├── db/                # PostGIS schema, spatial migrations, seed data & store
+│   │   ├── routes/            # REST API endpoints (assessments, safe points, SOS, auth)
+│   │   ├── services/          # Realtime SSE/WS broadcasting & spatial routing logic
+│   │   └── server.ts          # Server entry point (REST + WebSockets)
+│   ├── package.json           # Backend dependencies
+│   └── tsconfig.json          # Backend TypeScript configuration
+└── implementation_plan_backend.md # Architecture plan for MapLibre & decoupled backend
 ```
 
 ---
 
-## 🚀 Quick Start (Frontend)
+## 🚀 Quick Start
 
-To run using **Bun** (recommended) or **Npx**:
+### 1. Run the Frontend (Mobile App)
 
 ```bash
-# 1. Navigate to the frontend directory
 cd frontend
-
-# 2. Install dependencies
 bun install
-
-# 3. Start the dev server (with tunnel for physical phones)
-bunx expo start --tunnel
-
-# Or start for web browser preview
-bunx expo start --web
+bun start --start-tunnel  # Starts Expo with ngrok tunnel
 ```
 
-From the repository root, you can also run:
+### 2. Run the Product Backend
+
 ```bash
-bun run start:frontend
-bun run start:frontend:tunnel
-bun run frontend:typecheck
-bun run frontend:lint
+cd backend
+npm install
+npm run dev
+```
+
+### 3. Run from Root Workspace
+
+```bash
+npm run start:frontend  # Starts Expo mobile app
+npm run start:backend   # Starts Product backend on port 4000
+npm run build:backend   # Compiles backend TypeScript
 ```
 
 ---

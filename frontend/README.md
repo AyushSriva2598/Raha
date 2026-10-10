@@ -29,7 +29,7 @@ A life-critical, mobile-first Early Warning System (EWS) for downstream Himalaya
 
 ## 🚀 Quick Start (Frontend)
 
-To run using **Bun** (recommended) or **Npx**:
+To run using **Bun** with **ngrok tunneling**:
 
 ```bash
 # 1. Navigate to the frontend directory
@@ -38,11 +38,11 @@ cd frontend
 # 2. Install dependencies
 bun install
 
-# 3. Start the dev server (with tunnel for physical phones)
-bunx expo start --tunnel
+# 3. Start the dev server with ngrok tunnel (recommended for testing on physical devices)
+bun start --start-tunnel
 
 # Or start for web browser preview
-bunx expo start --web
+bun run web
 ```
 
 From the repository root, you can also run:
